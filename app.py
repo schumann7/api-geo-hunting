@@ -1,8 +1,9 @@
 import os
-from time import time
 from psycopg2 import pool
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
+import random
+import string
 
 app = Flask(__name__)
 
@@ -30,6 +31,21 @@ def get_db_connection():
     conn = connection_pool.getconn()
     return conn
 
+def generate_id():
+    caracteres = string.ascii_uppercase + string.digits
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    while True:
+        codigo = ''.join(random.choices(caracteres, k=4))
+        cur.execute("SELECT id FROM salas WHERE id = %s", (codigo,))
+        if not cur.fetchone():
+            break
+
+    cur.close()
+    conn.close()
+    return codigo
+
 @app.route("/")
 def index():
     conn = get_db_connection()
@@ -47,9 +63,9 @@ def index():
     # Close the cursor and return the connection to the pool
     cur.close()
     connection_pool.putconn(conn)
-    return {"message": "A API está rodando",
-            "Current time": time,  
-            "PostgreSQL version": version}
+    return jsonify({"message": "A API está rodando corretamente!",
+            "Current time": time,
+            "PostgreSQL version": version})
 
 
 @app.route("/dados")
@@ -63,6 +79,44 @@ def dados():
     cur.close()
     connection_pool.putconn(conn)
     return jsonify(result)
+
+@app.route("/criar_sala", methods=["POST"])
+def criar_sala():
+    data = request.get_json()
+    
+    # Campos obrigatórios
+    required_fields = ["nomedasala", "privada", "latitude", "longitude"]
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Campo obrigatório faltando: {field}"}), 400
+
+    # Validação de senha obrigatória se sala for privada
+    if data["privada"] and ("senha" not in data or data["senha"] is None):
+        return jsonify({"error": "Senha obrigatória para salas privadas"}), 400
+
+    try:
+        # Gera um ID único para a sala
+        generated_id = generate_id()
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Inserir os dados da nova sala no banco de dados
+        cur.execute("""
+            INSERT INTO salas (id, nomedasala, privada, senha, latitude, longitude)
+            VALUES (%s, %s, %s, %s, %s, %s);
+        """, (generated_id, data['nomedasala'], data['privada'], data.get('senha'), data['latitude'], data['longitude']))
+        conn.commit()
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        connection_pool.putconn(conn)
+
+    data['id'] = generated_id
+    return jsonify({"message": "Sala criada com sucesso!", "data": data}), 201
+
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)

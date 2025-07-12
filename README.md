@@ -31,6 +31,9 @@ Verificar se a API está rodando e se ela se conectou com o banco
 ### GET /dados
 Retorna todos os dados da tabela `salas`
 
+### POST /criar_sala
+É necessário enviar a requisição junto de um arquivo json, gera um id aleatório e registra os dados no banco de dados.
+
 ## Estrutura do Projeto
 
 - `app.py` - Aplicação principal Flask
