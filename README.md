@@ -28,10 +28,10 @@ A API estará disponível em `http://localhost:5000`
 ### GET /
 Verificar se a API está rodando e se ela se conectou com o banco
 
-### GET /dados
+### GET /find_rooms
 Retorna todos os dados da tabela `salas`
 
-### POST /criar_sala
+### POST /create_room
 É necessário enviar a requisição junto de um arquivo json, gera um id aleatório e registra os dados no banco de dados.
 
 ## Estrutura do Projeto

@@ -24,18 +24,18 @@ connection_pool = pool.SimpleConnectionPool(
 if connection_pool:
     print("Connection pool created successfully")
 
-# Close all connections in the pool
-# connection_pool.closeall()
-
 def get_db_connection():
     conn = connection_pool.getconn()
     return conn
 
+# Generate a unique ID for the room
 def generate_id():
     caracteres = string.ascii_uppercase + string.digits
     conn = get_db_connection()
     cur = conn.cursor()
     
+    # Check in database to ensure that the generated ID is not already in use
+    # Loop until a unique ID is found
     while True:
         codigo = ''.join(random.choices(caracteres, k=4))
         cur.execute("SELECT id FROM salas WHERE id = %s", (codigo,))
@@ -68,8 +68,8 @@ def index():
             "PostgreSQL version": version})
 
 
-@app.route("/dados")
-def dados():
+@app.route("/find_rooms", methods=["GET"])
+def find_rooms():
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM salas;")
@@ -80,28 +80,27 @@ def dados():
     connection_pool.putconn(conn)
     return jsonify(result)
 
-@app.route("/criar_sala", methods=["POST"])
-def criar_sala():
+@app.route("/create_room", methods=["POST"])
+def create_room():
     data = request.get_json()
     
-    # Campos obrigatórios
     required_fields = ["nomedasala", "privada", "latitude", "longitude"]
     for field in required_fields:
         if field not in data:
             return jsonify({"error": f"Campo obrigatório faltando: {field}"}), 400
 
-    # Validação de senha obrigatória se sala for privada
+    # Password validation for private rooms
     if data["privada"] and ("senha" not in data or data["senha"] is None):
         return jsonify({"error": "Senha obrigatória para salas privadas"}), 400
 
     try:
-        # Gera um ID único para a sala
+        # Generate a unique ID for the room
         generated_id = generate_id()
 
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Inserir os dados da nova sala no banco de dados
+        # Insert the new room into the database
         cur.execute("""
             INSERT INTO salas (id, nomedasala, privada, senha, latitude, longitude)
             VALUES (%s, %s, %s, %s, %s, %s);
